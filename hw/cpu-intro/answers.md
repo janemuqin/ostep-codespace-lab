@@ -19,7 +19,9 @@ Time PID 0    PID 1   CPU IOs
 - Reasoning / 理由:
 本题包含两个仅执行CPU计算的进程，无任何I/O操作。默认调度策略下，CPU密集型进程在执行过程中不会主动让出处理器，因此PID 0先连续执行5条CPU指令，期间PID 1处于就绪队列等待。PID 0执行完毕后，PID 1依次执行5条CPU指令。整个过程中每个时间片都有进程占用CPU，不存在空闲周期。总运行时间为10个tick，CPU利用率为100%，全程无I/O设备活动。
 - Verified result / 验证结果:
+总时间 10，CPU 忙 10（100.00%），I/O 忙 0（0.00%）（见 q1.txt）。
 - Analysis / 分析:
+预测正确。两个进程都只有 CPU 指令，没有 I/O，所以不会进入 BLOCKED。PID 0 跑完 5 个 tick，PID 1 才开始跑，CPU 全程没有空闲，IOs 列全程为空。
 
 ## Q2
 - Prediction / 预测:
@@ -42,7 +44,9 @@ Time PID 0    PID 1        CPU IOs
 - Reasoning / 理由:
 PID 0包含4条CPU指令，PID 1包含1次I/O操作。默认的SWITCH_ON_IO策略仅在进程发起I/O时触发上下文切换，纯CPU计算过程中不会发生调度。因此前4个时间片内CPU由PID 0独占，PID 1保持就绪状态。PID 0执行完成后，PID 1开始执行完整的I/O流程：1个tick发起I/O请求，5个tick处于阻塞状态等待设备响应，最后1个tick处理I/O完成中断。由于此时没有其他就绪进程，阻塞阶段CPU全程空闲。总运行时间为11个tick，其中CPU忙碌6个tick，利用率约为54.55%。
 - Verified result / 验证结果:
+总时间 11，CPU 忙 6（54.55%），I/O 忙 5（45.45%）（见 q2.txt）。
 - Analysis / 分析:
+预测正确。PID 0 的 4 条 CPU 指令先跑完，PID 1 再依次执行 RUN:io（1 tick）、BLOCKED（5 tick）、RUN:io_done（1 tick）。BLOCKED 期间没有其他进程可以运行，CPU 空闲 5 个 tick，所以利用率只有 6/11。
 
 ## Q3
 - Prediction / 预测:
@@ -61,7 +65,9 @@ Time PID 0        PID 1        CPU IOs
 - Reasoning / 理由:
 Q3的进程工作量与Q2完全一致，仅两个进程的启动顺序调换。PID 0先执行，在第1个tick发起I/O请求后进入阻塞状态；依据SWITCH_ON_IO策略，系统立即切换至PID 1执行。PID 1的4条CPU指令刚好在PID 0阻塞的前4个tick内执行完毕。第6个tick时PID 1已运行结束，PID 0仍处于阻塞期，该时间片CPU处于空闲。第7个tick PID 0处理I/O完成，全部进程结束。总运行时间为7个tick，CPU利用率约为85.71%。与Q2相比总时长明显缩短，核心原因是I/O阻塞期间CPU可以调度其他进程，避免了计算资源闲置
 - Verified result / 验证结果:
+总时间 7，CPU 忙 6（85.71%），I/O 忙 5（71.43%）（见 q3.txt）。
 - Analysis / 分析:
+预测正确。PID 0 发起 I/O 后，SWITCH_ON_IO 让系统切换到 PID 1，PID 1 的 4 条 CPU 指令在 PID 0 阻塞期间执行，只有 1 个 tick 的 CPU 空闲。与 Q2 工作量相同，但总时间从 11 降到 7，说明 I/O 等待时间可以和别的进程的计算重叠。
 
 ## Q4
 - Prediction / 预测:
@@ -84,7 +90,9 @@ Time PID 0        PID 1    CPU IOs
 - Reasoning / 理由:
 本题进程配置与Q3相同，调度策略更换为SWITCH_ON_END：仅当当前进程完全执行完毕后，系统才会切换至下一个进程，即使进程因I/O阻塞也不会让出CPU。因此PID 0在第1个tick发起I/O后，后续5个阻塞周期内CPU始终空闲，PID 1持续处于就绪队列等待。直到第7个tick PID 0处理完I/O并结束后，PID 1才开始执行4条CPU指令。总运行时间为11个tick，CPU利用率约为54.55%。对比Q3可以看出，不支持I/O触发切换的调度策略会造成CPU资源的大量浪费，整体运行效率更低。
 - Verified result / 验证结果:
+总时间 11，CPU 忙 6（54.55%），I/O 忙 5（45.45%）（见 q4.txt）。
 - Analysis / 分析:
+预测正确。SWITCH_ON_END 要等 PID 0 完全结束才切换，I/O 阻塞的 5 个 tick 里 PID 1 一直是 READY，CPU 空闲。结果与 Q2 相同，比 Q3 慢 4 个 tick。
 
 ## Q5
 - Prediction / 预测:
@@ -103,7 +111,9 @@ Time PID 0        PID 1        CPU IOs
 - Reasoning / 理由:
 本题显式指定-S SWITCH_ON_IO调度策略，该策略为模拟器的默认配置，因此运行过程与最终结果均与Q3一致。进程发起I/O后立即触发上下文切换，I/O阻塞期间CPU可调度其他就绪进程，仅在阻塞末期存在1个tick的CPU空闲。总运行时间为7个tick。与Q4的SWITCH_ON_END策略相比，总时长明显缩短，体现了I/O触发调度对CPU资源利用率的提升作用。
 - Verified result / 验证结果:
+总时间 7，CPU 忙 6（85.71%），I/O 忙 5（71.43%）（见 q5.txt）。
 - Analysis / 分析:
+预测正确。-S SWITCH_ON_IO 是默认值，所以结果与 Q3 完全相同。对比 Q4，I/O 触发切换使总时间从 11 缩短到 7。
 
 ## Q6
 - Prediction / 预测:
@@ -146,7 +156,9 @@ Time PID 0        PID 1        PID 2        PID 3        CPU IOs
 - Reasoning / 理由:
 PID 0包含3次I/O操作，PID 1、PID 2、PID 3各包含5条CPU指令，调度策略为SWITCH_ON_IO搭配IO_RUN_LATER：I/O完成后，对应进程进入就绪队列尾部等待调度，不会抢占当前运行的进程。第1个tick PID 0发起第一次I/O后阻塞，系统切换至PID 1执行，第2至6个tick PID 1运行完毕。第7个tick时PID 0的I/O已完成，但依据IO_RUN_LATER规则，需按队列顺序依次调度PID 2、PID 3，各执行5个tick。第17个tick PID 0才被调度，处理第一次I/O完成后立即发起第二次I/O。后两次I/O执行期间，其余进程均已结束，没有就绪进程可调度，CPU全程空闲，每次I/O各占7个tick。总运行时间为31个tick，其中CPU忙碌21个tick，利用率约为67.74%。同时I/O设备存在明显的空闲期，第一次I/O完成后间隔了较长时间才收到下一次请求。
 - Verified result / 验证结果:
+总时间 31，CPU 忙 21（67.74%），I/O 忙 15（48.39%）（见 q6.txt）。
 - Analysis / 分析:
+预测正确。IO_RUN_LATER 下，PID 0 的第一次 I/O 完成后只是变成 READY，要等 PID 2、PID 3 都跑完才继续，所以后两次 I/O 没有别的进程可以利用阻塞时间，CPU 空闲 10 个 tick。I/O 设备也有较长的空闲期，I/O 利用率只有 48.39%。
 
 ## Q7
 - Prediction / 预测:
@@ -179,7 +191,9 @@ Time PID 0        PID 1        PID 2        PID 3        CPU IOs
 - Reasoning / 理由:
 本题进程配置与Q6一致，调度策略更换为IO_RUN_IMMEDIATE：I/O完成后立即调度对应进程运行，无需进入就绪队列排队。第1个tick PID 0发起第一次I/O后阻塞，第2至6个tick PID 1执行。第7个tick I/O完成，立即调度PID 0处理完成中断，第8个tick随即发起第二次I/O，阻塞期间切换至PID 2执行5个tick。第14个tick第二次I/O完成，立即调度PID 0，第15个tick发起第三次I/O，阻塞期间PID 3执行5个tick。第21个tick第三次I/O处理完成，所有进程结束。整个过程中CPU没有空闲周期，总运行时间为21个tick，CPU利用率为100%。与Q6相比总时长显著缩短，原因在于I/O密集型进程完成后立即继续执行，既保证了I/O设备持续忙碌，也让CPU在I/O阻塞阶段始终有进程可运行，整体资源利用率更高。
 - Verified result / 验证结果:
+总时间 21，CPU 忙 21（100.00%），I/O 忙 15（71.43%）（见 q7.txt）。
 - Analysis / 分析:
+预测正确。IO_RUN_IMMEDIATE 让 PID 0 在每次 I/O 完成后立刻再运行并发起下一次 I/O，I/O 设备不再空闲，阻塞期间 CPU 总有 PID 1、2、3 可以运行。总时间从 Q6 的 31 降到 21，CPU 利用率达到 100%。
 
 ## Q8
 - Prediction / 预测:
@@ -271,5 +285,9 @@ IO_RUN_IMMEDIATE 该策略仅在“I/O完成时刻CPU正被其他进程占用”
 - 种子3中，PID 1的I/O完成时PID 0正在运行，立即调度可让PID 1提前发起下一次I/O；而PID 0剩余的最后一条CPU指令，可安排在PID 1第二次I/O的阻塞期内执行，总运行时间较默认策略缩短1个tick，变为17个tick。
 SWITCH_ON_END 要等当前进程完全结束才切换，I/O 阻塞期间 CPU 不会去运行别的进程，所以三个种子都最慢：每个进程的 I/O 等待时间都完全浪费，总时间等于两个进程各自单独运行的时间之和（种子 1：15 + 3 = 18；种子 2：15 + 15 = 30；种子 3：9 + 15 = 24）。
 - Verified result / 验证结果:
+种子 1：默认 总时间 15，CPU 忙 8（53.33%），I/O 忙 10（66.67%）；IO_RUN_IMMEDIATE 总时间 15，CPU 忙 8（53.33%）；SWITCH_ON_END 总时间 18，CPU 忙 8（44.44%），I/O 忙 10（55.56%）（见 q8-s1.txt）。
+种子 2：默认 总时间 16，CPU 忙 10（62.50%），I/O 忙 14（87.50%）；IO_RUN_IMMEDIATE 总时间 16，CPU 忙 10（62.50%）；SWITCH_ON_END 总时间 30，CPU 忙 10（33.33%），I/O 忙 20（66.67%）（见 q8-s2.txt）。
+种子 3：默认 总时间 18，CPU 忙 9（50.00%），I/O 忙 11（61.11%）；IO_RUN_IMMEDIATE 总时间 17，CPU 忙 9（52.94%），I/O 忙 11（64.71%）；SWITCH_ON_END 总时间 24，CPU 忙 9（37.50%），I/O 忙 15（62.50%）（见 q8-s3.txt）。
 - Analysis / 分析:
+9 个设置的总时间和 CPU 利用率都与预测一致。三个种子里 SWITCH_ON_END 都最慢，因为 I/O 阻塞期间 CPU 不会去运行另一个进程，总时间等于两个进程单独运行时间之和（种子 1：15 + 3 = 18；种子 2：15 + 15 = 30；种子 3：9 + 15 = 24）。IO_RUN_IMMEDIATE 只在种子 3 里有改善（18 变成 17），因为只有种子 3 中 PID 1 的 I/O 完成时 PID 0 正在占用 CPU，立即运行能让 PID 1 提前发起下一次 I/O；种子 1 和 2 里 I/O 完成时 CPU 上没有别的进程在运行，所以与默认相同。种子 2 的逐 tick 输出与我的预测表完全一致：第 4 至 6 个和第 11 至 13 个 tick 两个进程同时 BLOCKED（IOs 列为 2），CPU 空闲，共 6 个 tick，对应 16 − 10 = 6。
 
